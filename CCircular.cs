@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Management;
-
+using System.Runtime.InteropServices;
+    
 using Google.Protobuf;
 using SCNet;
 using Circular2;
@@ -8,6 +9,13 @@ using Circular2;
 namespace CatsEyeViewer {
     partial class MainForm {
 
+        [DllImport("ffmpegWrapper.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int FFMpegCodecDecInit(int index, int picWidth, int picHeight);
+        [DllImport("ffmpegWrapper.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void FFMpegCodecDecUninit(int index);
+        [DllImport("ffmpegWrapper.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr FFMpegCodecDecExecute(int index, byte[] inbuf, int size);
+        
         Client client;
 
         void TestCircular() {
