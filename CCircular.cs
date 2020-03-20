@@ -17,6 +17,7 @@ namespace CatsEyeViewer {
         public static extern IntPtr FFMpegCodecDecExecute(int index, byte[] inbuf, int size);
         
         Client client;
+        Int32 recentWidth = 0, recentHeight = 0;
 
         void TestCircular() {
             Console.WriteLine("test circular()");
@@ -24,8 +25,6 @@ namespace CatsEyeViewer {
             client = new Client();
             SetConnectionCallback();
             SetRegistry();
-
-            client.Attach("192.168.0.100", 9191);
         }
 
         void SetConnectionCallback() {
@@ -43,10 +42,10 @@ namespace CatsEyeViewer {
                 client.Send(req);
             };
             client.connectingFailedCallback = (Client client) => {
-                Console.WriteLine("connectingFailedCallback");
+                Console.WriteLine("connectingFailed");
             };
             client.disconnectedCallback = (Client client) => {
-                Console.WriteLine("disconnectedCallback");
+                Console.WriteLine("disconnected");
             };
         }
 
@@ -63,6 +62,13 @@ namespace CatsEyeViewer {
                     RegistrationViewerResponse res = (RegistrationViewerResponse)message;
                     if (res.Result == Result.Success) {
                         Console.WriteLine("Registration Viewer success");
+
+                        StreamingStartRequest req = new StreamingStartRequest() {
+                            AccessToken = "access_token",
+                            Serial = "office",
+                            Uts = 0
+                        };
+                        client.Send(req);
                     }
                     else {
                         Console.WriteLine("Registration Viewer failed, " + res.Result);
@@ -88,12 +94,44 @@ namespace CatsEyeViewer {
             registry.Add(new VideoInitFrame(), VideoInitFrame.Parser, (int)PacketType.VideoInitFrame,
                 (IMessage message) => {
                     VideoInitFrame videoInitFrame = (VideoInitFrame)message;
+
+                    Int32 width = (Int32)videoInitFrame.Width;
+                    Int32 height = (Int32)videoInitFrame.Height;
+                    Int32 fps = (Int32)videoInitFrame.FramePerSecond;
+                    byte[] spspps = videoInitFrame.Spspps.ToByteArray();
+
+                    Console.WriteLine(spspps.Length);
+                    if (recentWidth != width || recentHeight != height) {
+                        FFMpegCodecDecInit(1, width, height);
+                        recentWidth = width;
+                        recentHeight = height;
+                    }
+
+                    FFMpegCodecDecExecute(1, spspps, spspps.Length);
+
                     Console.WriteLine("VideoInitFrame. uts=" + videoInitFrame.UtsMs);
                 });
             registry.Add(new VideoFrame(), VideoFrame.Parser, (int)PacketType.VideoFrame,
                 (IMessage message) => {
                     VideoFrame videoFrame = (VideoFrame)message;
                     Console.WriteLine("VideoFrame. uts=" + videoFrame.UtsMs);
+                    
+                    byte[] frame = videoFrame.Frame.ToByteArray();
+                    Console.WriteLine(frame.Length);
+                    if (recentWidth != 0 && recentHeight != 0) {
+                        IntPtr RGB24 = FFMpegCodecDecExecute(1, frame, frame.Length);
+                        int length = 1280 * 720 * 3 + 54;
+                        if (RGB24 != IntPtr.Zero) {
+                            lock (mList) {
+                                mList.Add(new FrameData(1, RGB24, length));
+                            }
+                        }
+                    }
+
+
+
+
+
                 });
             registry.Add(new GenData(), GenData.Parser, (int)PacketType.GenData,
                 (IMessage message) => {
@@ -125,5 +163,6 @@ namespace CatsEyeViewer {
 
             return uuid;
         }
+
     }
 }

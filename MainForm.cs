@@ -37,11 +37,11 @@ namespace CatsEyeViewer
         static bool isFormClosing = false;
         Thread mThread;
 
-        LibCSWrapper.StreamCallback callback = new LibCSWrapper.StreamCallback(MyStreamCallback);
-
         public MainForm()
         {
             InitializeComponent();
+            
+            TestCircular();
 
             cameraIsStart = false;
             mList = new List<FrameData>();
@@ -49,110 +49,16 @@ namespace CatsEyeViewer
             byteImg2 = new byte[1280 * 720 * 24 + 54];
         }
 
-        static void MyStreamCallback(int nIndex, int nOpcode, IntPtr pArg, int nArgSize)
-        {
-            STREAM_CALLBACK_OPCODE opcode = (STREAM_CALLBACK_OPCODE)nOpcode;
-            switch(opcode)
-            {
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_ATTACH:
-                    Console.WriteLine("C# Callback Function : STREAM_CALLBACK_ATTACH, " + nIndex);
-                    LibCSWrapper.Control(nIndex, (int)STREAM_CTRL_OPCODE.STREAM_CTRL_RTS_ENABLE_VIDEO, IntPtr.Zero, 0);
-                    LibCSWrapper.Control(nIndex, (int)STREAM_CTRL_OPCODE.STREAM_CTRL_RTS_START, IntPtr.Zero, 0);
-                    break;
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_DETACH:
-                    Console.WriteLine("C# Callback Function : STREAM_CALLBACK_DETACH");
-                    break;
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_RTS_TRYING:
-                    Console.WriteLine("C# Callback Function : STREAM_CALLBACK_RTS_TRYING");
-                    break;
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_RTS_CONNECTED:
-                    Console.WriteLine("C# Callback Function : STREAM_CALLBACK_RTS_CONNECTED");
-                    break;
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_RTS_DISCONNECTED:
-                    Console.WriteLine("C# Callback Function : STREAM_CALLBACK_RTS_DISCONNECTED");
-                    break;
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_RTS_CONNECT_FAILED:
-                    Console.WriteLine("C# Callback Function : STREAM_CALLBACK_RTS_CONNECT_FAILED");
-                    break;
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_RTS_SET_VINIT:
-                    Console.WriteLine("C# Callback Function : STREAM_CALLBACK_RTS_SET_VINIT, nArgSize: " + nArgSize);
-                    break;
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_RTS_SET_VFRAME:
-                    //Console.WriteLine("C# Callback Function : STREAM_CALLBACK_RTS_SET_VFRAME, nArgSize" + nArgSize + ", nIndex: " + nIndex);
-                    
-                    if (pArg != IntPtr.Zero)
-                    {
-                        VideoFrameHeader_T h = (VideoFrameHeader_T)Marshal.PtrToStructure(pArg, typeof(VideoFrameHeader_T));
-                        
-                        if (h.pImageData != IntPtr.Zero)
-                        {
-                            lock (mList)
-                            {
-                                mList.Add(new FrameData(nIndex, h.pImageData, (int)h.DL));
-                            }
-                        //Console.WriteLine("Year : " + h.Yr + "h.DL : " + h.DL);
-                        }
-                    }
-                   
-                    break;
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_RTS_SET_AINIT:
-                    Console.WriteLine("C# Callback Function : STREAM_CALLBACK_RTS_SET_AINIT");
-                    break;
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_RTS_SET_AFRAME:
-                    Console.WriteLine("C# Callback Function : STREAM_CALLBACK_RTS_SET_AFRAME");
-                    break;
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_JPG_SET:
-                    Console.WriteLine("C# Callback Function : STREAM_CALLBACK_JPG_SET");
-                    break;
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_BLE_SET:
-                    Console.WriteLine("C# Callback Function : STREAM_CALLBACK_BLE_SET");
-                    break;
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_PTS_TRYING:
-                    Console.WriteLine("C# Callback Function : STREAM_CALLBACK_PTS_TRYING");
-                    break;
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_PTS_CONNECTED:
-                    Console.WriteLine("C# Callback Function : STREAM_CALLBACK_PTS_CONNECTED");
-                    break;
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_PTS_DISCONNECTED:
-                    Console.WriteLine("C# Callback Function : STREAM_CALLBACK_PTS_DISCONNECTED");
-                    break;
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_PTS_CONNECT_FAILED:
-                    Console.WriteLine("C# Callback Function : STREAM_CALLBACK_PTS_CONNECT_FAILED");
-                    break;
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_PTS_SET_VINIT:
-                    Console.WriteLine("C# Callback Function : STREAM_CALLBACK_PTS_SET_VINIT");
-                    break;
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_PTS_SET_VFRAME:
-                    Console.WriteLine("C# Callback Function : STREAM_CALLBACK_PTS_SET_VFRAME");
-                    break;
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_PTS_SET_AINIT:
-                    Console.WriteLine("C# Callback Function : STREAM_CALLBACK_PTS_SET_AINIT");
-                    break;
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_PTS_SET_AFRAME:
-                    Console.WriteLine("C# Callback Function : STREAM_CALLBACK_PTS_SET_AFRAME");
-                    break;
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_PTS_SET_TIMELIST:
-                    Console.WriteLine("C# Callback Function : STREAM_CALLBACK_PTS_SET_TIMELIST");
-                    break;
-                case STREAM_CALLBACK_OPCODE.STREAM_CALLBACK_PTS_SET_EOF:
-                    Console.WriteLine("C# Callback Function : STREAM_CALLBACK_PTS_SET_EOF");
-                    break;
-            }
-        }
-
         private void Connect_Button_Click(object sender, EventArgs e)
         {
+            client.Attach(textBox1.Text, Convert.ToInt32(textBox2.Text));
+
             if (!cameraIsStart)
             {
                 cameraIsStart = true;
                 mThread = new Thread(RenderThread);
                 mThread.Start();
-
-                LibCSWrapper.Attach(1, textBox1.Text.ToCharArray(), Convert.ToInt32(textBox2.Text), Convert.ToInt32(comboBox1.Text), callback);
-                LibCSWrapper.Attach(2, textBox1.Text.ToCharArray(), 8200, Convert.ToInt32(comboBox1.Text), callback);
                 
-                
-
                 Connect_Button.Text = "Disconnect";
             }
             else
@@ -162,13 +68,6 @@ namespace CatsEyeViewer
                     cameraIsStart = false;
                 }
                 mThread.Join(100);
-
-
-                LibCSWrapper.Control(1, (int)STREAM_CTRL_OPCODE.STREAM_CTRL_RTS_STOP, IntPtr.Zero, 0);
-                LibCSWrapper.Detach(1);
-
-                LibCSWrapper.Control(2, (int)STREAM_CTRL_OPCODE.STREAM_CTRL_RTS_STOP, IntPtr.Zero, 0);
-                LibCSWrapper.Detach(2);
 
                 Connect_Button.Text = "Connect";
 
@@ -180,13 +79,6 @@ namespace CatsEyeViewer
             isFormClosing = true;
             cameraIsStart = false;
             mThread.Join(1000);
-
-            LibCSWrapper.Control(1, (int)STREAM_CTRL_OPCODE.STREAM_CTRL_RTS_STOP, IntPtr.Zero, 0);
-            LibCSWrapper.Detach(1);
-
-            LibCSWrapper.Control(2, (int)STREAM_CTRL_OPCODE.STREAM_CTRL_RTS_STOP, IntPtr.Zero, 0);
-            LibCSWrapper.Detach(2);
-
         }
 
         public Image byteArrayToImage(byte[] byteArrayIn)
@@ -222,7 +114,7 @@ namespace CatsEyeViewer
                         mList.RemoveAt(0);
                         if (frameData.mFramePtr != IntPtr.Zero)
                         {
-                            //Console.WriteLine("frameData.mIndex : " + frameData.mIndex + ", listCount: " + mList.Count);
+                            Console.WriteLine("frameData.mIndex : " + frameData.mIndex + ", listCount: " + mList.Count);
                             switch (frameData.mIndex)
                             {
                                 case 1:
@@ -271,12 +163,7 @@ namespace CatsEyeViewer
                         Thread.Sleep(20);
                     }
                 }    
-                
-                
-
-                
             }
-
             Console.WriteLine("RenderThread Exit");
         }
 
@@ -301,8 +188,6 @@ namespace CatsEyeViewer
                 return Image.FromStream(ms);
             }
         }
-        
-
     }
 
     
